@@ -43,8 +43,8 @@ local config = require "config"
 -- mac:     A 32-bit HMAC signature over the `signed` struct using the
 --          node's pre-shared key. The receiver MUST NOT read any values of
 --          the packet before verifying this value, with the exception of the
---          `id` value, which can be used to identify the key that has been
---          used.
+--          `version`, `name` values, which can be used to identify the key
+--          that has been used.
 
 -- UDP socket for broadcast messages
 local appUDPSocket
