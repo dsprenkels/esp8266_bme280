@@ -61,12 +61,10 @@ class UDPListener(object):
             msg = esp8266_sock.recv(4096)
             payload = UDPListener.authenticate_message(msg)
             if payload is not None:
-                _state_lock.acquire()
-                _state = UDPListener.unpack_message(payload)
-                _last_updated = datetime.datetime.now()
-                print('Updated state: {}'.format(_state), flush=True)
-                _state_lock.release()
-
+                with _state_lock:
+                    _state = UDPListener.unpack_message(payload)
+                    _last_updated = datetime.datetime.now()
+                    print('Updated state: {}'.format(_state), flush=True)
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
@@ -76,27 +74,24 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'404 not found')
             return
 
-        _state_lock.acquire()
+        with _state_lock:
+            self.send_response(200)
+            self.end_headers()
 
-        self.send_response(200)
-        self.end_headers()
-
-        self.wfile.write(b'# HELP bme280_temperature Measured temperature from BME280 sensor\n')
-        self.wfile.write(b'# TYPE bme280_temperature gauge\n')
-        self.wfile.write(b'# HELP bme280_pressure Measured pressure from BME280 sensor\n')
-        self.wfile.write(b'# TYPE bme280_pressure gauge\n')
-        self.wfile.write(b'# HELP bme280_humidity Measured humidity from BME280 sensor\n')
-        self.wfile.write(b'# TYPE bme280_humidity gauge\n')
-        if _last_updated != None and _last_updated > datetime.datetime.now() - datetime.timedelta(seconds=DEVICE_LOST_SECONDS):
-            for name, values in _state.items():
-                if values[0]:
-                    self.wfile.write(b'bme280_temperature{name="%s"} %.2f\n' % (name, values[0]))
-                if values[1]:
-                    self.wfile.write(b'bme280_pressure{name="%s"} %.3f\n' % (name, values[1]))
-                if values[2]:
-                    self.wfile.write(b'bme280_humidity{name="%s"} %.3f\n' % (name, values[2]))
-
-        _state_lock.release()
+            self.wfile.write(b'# HELP bme280_temperature Measured temperature from BME280 sensor\n')
+            self.wfile.write(b'# TYPE bme280_temperature gauge\n')
+            self.wfile.write(b'# HELP bme280_pressure Measured pressure from BME280 sensor\n')
+            self.wfile.write(b'# TYPE bme280_pressure gauge\n')
+            self.wfile.write(b'# HELP bme280_humidity Measured humidity from BME280 sensor\n')
+            self.wfile.write(b'# TYPE bme280_humidity gauge\n')
+            if _last_updated != None and _last_updated > datetime.datetime.now() - datetime.timedelta(seconds=DEVICE_LOST_SECONDS):
+                for name, values in _state.items():
+                    if values[0]:
+                        self.wfile.write(b'bme280_temperature{name="%s"} %.2f\n' % (name, values[0]))
+                    if values[1]:
+                        self.wfile.write(b'bme280_pressure{name="%s"} %.3f\n' % (name, values[1]))
+                    if values[2]:
+                        self.wfile.write(b'bme280_humidity{name="%s"} %.3f\n' % (name, values[2]))
 
 
 if __name__ == '__main__':
